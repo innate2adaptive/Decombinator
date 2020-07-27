@@ -143,7 +143,8 @@ def args():
       '-nbc', '--nobarcoding', action='store_true', help='Option to run Decombinator without barcoding, i.e. so as to run on data produced by any protocol.', required=False)
   parser.add_argument(
       '-bl', '--bclength', type=int, help='Length of barcode sequence, if applicable. Default is set to 42 bp.', required=False, default=42)
-
+  parser.add_argument(
+      '-tt', '--tagthreshold', type=int, help='Allowed hamming distance mismatch for half tags', required=False, default=1)
   return parser.parse_args()
 
 ##########################################################
@@ -245,8 +246,9 @@ def readfq(fp):
 ############# DECOMBINE #############
 #####################################
 
-def vanalysis(read):
+def vanalysis(read, inputargs):
 
+  half_tag_threshold = inputargs['tagthreshold']
   hold_v = v_key.findall(read)
   
   if hold_v:
@@ -271,7 +273,7 @@ def vanalysis(read):
         indices = [y for y, x in enumerate(half1_v_seqs) if x == hold_v1[i][0] ]
         for k in indices:
           if len(v_seqs[k]) == len(read[hold_v1[i][1]:hold_v1[i][1]+len(v_seqs[half1_v_seqs.index(hold_v1[i][0])])]):
-            if lev.hamming( v_seqs[k], read[hold_v1[i][1]:hold_v1[i][1]+len(v_seqs[k])] ) <= 1:
+            if lev.hamming( v_seqs[k], read[hold_v1[i][1]:hold_v1[i][1]+len(v_seqs[k])] ) <= half_tag_threshold:
               counts['verr2'] += 1
               v_match = k
               temp_end_v = hold_v1[i][1] + jump_to_end_v[v_match] - 1 # Finds where the end of a full V would be
@@ -290,7 +292,7 @@ def vanalysis(read):
           indices = [y for y, x in enumerate(half2_v_seqs) if x == hold_v2[i][0] ]
           for k in indices:
             if len(v_seqs[k]) == len(read[hold_v2[i][1]-v_half_split:hold_v2[i][1]-v_half_split+len(v_seqs[half2_v_seqs.index(hold_v2[i][0])])]):
-              if lev.hamming( v_seqs[k], read[hold_v2[i][1]-v_half_split:hold_v2[i][1]+len(v_seqs[k])-v_half_split] ) <= 1:
+              if lev.hamming( v_seqs[k], read[hold_v2[i][1]-v_half_split:hold_v2[i][1]+len(v_seqs[k])-v_half_split] ) <= half_tag_threshold:
                 counts['verr1'] += 1
                 v_match = k
                 temp_end_v = hold_v2[i][1] + jump_to_end_v[v_match] - v_half_split - 1 # Finds where the end of a full V would be
@@ -305,8 +307,9 @@ def vanalysis(read):
         counts['no_vtags_found'] += 1
         return
       
-def janalysis(read):
+def janalysis(read, inputargs):
   
+  half_tag_threshold = inputargs['tagthreshold']
   hold_j = j_key.findall(read)
   
   if hold_j:
@@ -332,7 +335,7 @@ def janalysis(read):
         indices = [y for y, x in enumerate(half1_j_seqs) if x == hold_j1[i][0] ]
         for k in indices:
           if len(j_seqs[k]) == len(read[hold_j1[i][1]:hold_j1[i][1]+len(j_seqs[half1_j_seqs.index(hold_j1[i][0])])]):
-            if lev.hamming( j_seqs[k], read[hold_j1[i][1]:hold_j1[i][1]+len(j_seqs[k])] ) <= 1:
+            if lev.hamming( j_seqs[k], read[hold_j1[i][1]:hold_j1[i][1]+len(j_seqs[k])] ) <= half_tag_threshold:
               counts['jerr2'] += 1
               j_match = k
               temp_start_j = hold_j1[i][1] - jump_to_start_j[j_match] # Finds where the start of a full J would be
@@ -350,7 +353,7 @@ def janalysis(read):
           indices = [y for y, x in enumerate(half2_j_seqs) if x == hold_j2[i][0] ]
           for k in indices:
             if len(j_seqs[k]) == len(read[hold_j2[i][1]-j_half_split:hold_j2[i][1]-j_half_split+len(j_seqs[half2_j_seqs.index(hold_j2[i][0])])]):
-              if lev.hamming( j_seqs[k], read[hold_j2[i][1]-j_half_split:hold_j2[i][1]+len(j_seqs[k])-j_half_split] ) <= 1:
+              if lev.hamming( j_seqs[k], read[hold_j2[i][1]-j_half_split:hold_j2[i][1]+len(j_seqs[k])-j_half_split] ) <= half_tag_threshold:
                 counts['jerr1'] += 1
                 j_match = k
                 temp_start_j = hold_j2[i][1] - jump_to_start_j[j_match] - j_half_split # Finds where the start of a full J would be
@@ -373,12 +376,12 @@ def dcr(read, inputargs):
   v_seq_start = 0     
   j_seq_end = 0      
   
-  vdat = vanalysis(read)
+  vdat = vanalysis(read, inputargs)
   
   if not vdat:
     return
 
-  jdat = janalysis(read)
+  jdat = janalysis(read, inputargs)
   
   if jdat:
     
